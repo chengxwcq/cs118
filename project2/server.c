@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in serv_addr, cli_addr;
     socklen_t addrlen = sizeof(cli_addr);
     int recvlen; /* the length of the received data */
-    unsigned char buf[1024]; /* used to receive the message from the client */
+    unsigned char buf[BUFSIZE]; /* used to receive the message from the client */
 
     if (argc < 2) {
         fprintf(stderr, "ERROR, no port provided\n");
@@ -44,8 +44,12 @@ int main(int argc, char *argv[]) {
         recvlen = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *)&cli_addr, &addrlen);
         printf("received %d bytes\n", recvlen);
         if (recvlen > 0) {
-            buf[recvlen] = 0;
-            printf("received message: \"%s\"\n", buf);
+            buf[recvlen] = '\0';
+            FILE *fp = fopen((char*)buf, "rb");
+            if (fp == NULL) {
+                char *response = (char*) "File not exists";
+                sendto(sockfd, response, strlen(response), 0, (struct sockaddr *)&cli_addr, addrlen);
+            }
         }
     }
     close(sockfd);

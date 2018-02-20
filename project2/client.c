@@ -7,11 +7,15 @@
 #include <string.h>
 #include <unistd.h>
 
+#define BUFSIZE 1024
 void udp_msg_sender(int, struct sockaddr*, char*);
 
 int main(int argc, char* argv[]) {
     int client_fd, portno;
     struct sockaddr_in ser_addr;
+    int recvlen;
+    socklen_t addrlen = sizeof(ser_addr);
+    unsigned char buf[BUFSIZE];
 
     if (argc < 4) {
         fprintf(stderr, "insufficient parameters, should be client <server_hostname> <server_portnumber> <filename>\n");
@@ -31,6 +35,9 @@ int main(int argc, char* argv[]) {
     ser_addr.sin_port = htons(portno);
 
     udp_msg_sender(client_fd, (struct sockaddr*)&ser_addr, argv[3]);
+    recvlen = recvfrom(client_fd, buf, BUFSIZE, 0, (struct sockaddr *)&ser_addr, &addrlen);
+    printf("%s\n", buf);
+
     close(client_fd);
     return 0;
 }
