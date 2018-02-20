@@ -35,9 +35,11 @@ int main(int argc, char* argv[]) {
     ser_addr.sin_port = htons(portno);
 
     udp_msg_sender(client_fd, (struct sockaddr*)&ser_addr, argv[3]);
-    recvlen = recvfrom(client_fd, buf, BUFSIZE, 0, (struct sockaddr *)&ser_addr, &addrlen);
-    printf("%s\n", buf);
 
+    for (;;) {
+        recvlen = recvfrom(client_fd, buf, BUFSIZE, 0, (struct sockaddr *)&ser_addr, &addrlen);
+        printf("%s\n", buf);
+    }
     close(client_fd);
     return 0;
 }

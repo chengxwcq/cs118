@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #define BUFSIZE 1024
+#define MPL 1024 /* maximum package length*/
 void doTransmission(int);
 
 int main(int argc, char *argv[]) {
@@ -17,6 +18,9 @@ int main(int argc, char *argv[]) {
     socklen_t addrlen = sizeof(cli_addr);
     int recvlen; /* the length of the received data */
     unsigned char buf[BUFSIZE]; /* used to receive the message from the client */
+    unsigned char sendbuf[MPL];
+
+    int numread; /* used to indicated the number of bytes read from the file*/
 
     if (argc < 2) {
         fprintf(stderr, "ERROR, no port provided\n");
@@ -49,8 +53,15 @@ int main(int argc, char *argv[]) {
             if (fp == NULL) {
                 char *response = (char*) "File not exists";
                 sendto(sockfd, response, strlen(response), 0, (struct sockaddr *)&cli_addr, addrlen);
+            } else {// TODO: when the file exists, we need to read from the file and transmit to the client side
+                while (!feof(fp)) {
+                    int numread = fread(sendbuf, sizeof(char), MPL, fp);
+                   // sendbuf[numread] = '\0';
+                    printf("%d\n", numread);
+                    printf("%s\n", sendbuf);
+                    sendto(sockfd, sendbuf, numread, 0, (struct sockaddr *)&cli_addr, addrlen);
+                }
             }
-            // TODO: when the file exists, we need to read from the file and transmit to the client side
         }
     }
     close(sockfd);
