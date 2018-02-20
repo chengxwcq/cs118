@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
                 char *response = (char*) "File not exists";
                 sendto(sockfd, response, strlen(response), 0, (struct sockaddr *)&cli_addr, addrlen);
             }
+            // TODO: when the file exists, we need to read from the file and transmit to the client side
         }
     }
     close(sockfd);
