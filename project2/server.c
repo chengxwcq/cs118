@@ -6,10 +6,13 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
+#include "packet.h"
 
 #define BUFSIZE 1024
-#define MPL 1024 /* maximum package length*/
+
 void doTransmission(int);
+
+// the format should be ACK, SYN, FIN, SEQ #, ACK #
 
 int main(int argc, char *argv[]) {
     int sockfd, newsockfd, portno;
@@ -56,11 +59,12 @@ int main(int argc, char *argv[]) {
             } else {// TODO: when the file exists, we need to read from the file and transmit to the client side
                 while (!feof(fp)) {
                     int numread = fread(sendbuf, sizeof(char), MPL, fp);
-                   // sendbuf[numread] = '\0';
+                    sendbuf[numread] = '\0';
                     printf("%d\n", numread);
                     printf("%s\n", sendbuf);
                     sendto(sockfd, sendbuf, numread, 0, (struct sockaddr *)&cli_addr, addrlen);
                 }
+
             }
         }
     }

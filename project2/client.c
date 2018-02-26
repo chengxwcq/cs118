@@ -36,9 +36,13 @@ int main(int argc, char* argv[]) {
 
     udp_msg_sender(client_fd, (struct sockaddr*)&ser_addr, argv[3]);
 
+    FILE* fp;
     for (;;) {
+        fp = fopen("b.txt", "wba");
         recvlen = recvfrom(client_fd, buf, BUFSIZE, 0, (struct sockaddr *)&ser_addr, &addrlen);
-        printf("%s\n", buf);
+        // printf("%s\n", buf);
+        fprintf(fp, "%s", buf);
+        fclose(fp);
     }
     close(client_fd);
     return 0;
