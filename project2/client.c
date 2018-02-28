@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
+#include "packet.h"
 
 #define BUFSIZE 1024
 void udp_msg_sender(int, struct sockaddr*, char*);
@@ -37,13 +38,27 @@ int main(int argc, char* argv[]) {
     udp_msg_sender(client_fd, (struct sockaddr*)&ser_addr, argv[3]);
 
     FILE* fp;
+    struct packet rec_pac;
+    struct packet send_pac;
+    
+    fp = fopen("b.txt", "wba");
+
     for (;;) {
-        fp = fopen("b.txt", "wba");
-        recvlen = recvfrom(client_fd, buf, BUFSIZE, 0, (struct sockaddr *)&ser_addr, &addrlen);
-        // printf("%s\n", buf);
-        fprintf(fp, "%s", buf);
-        fclose(fp);
+        recvlen = recvfrom(client_fd, &rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, &addrlen);
+        printf("%s\n", rec_pac.data);
+        fprintf(fp, "%s", rec_pac.data);
+
+        if (rec_pac.fin == 1) 
+            break;
+
+        send_pac.type = 1;
+        send_pac.number = rec_pac.number;
+        sendto(client_fd, (char *)&send_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, addrlen);
+
+        memset((char *)&rec_pac, 1, sizeof(struct packet));
+        memset((char *)&send_pac, 0, sizeof(struct packet));
     }
+    fclose(fp);
     close(client_fd);
     return 0;
 }
