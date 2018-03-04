@@ -10,9 +10,9 @@
 #include "packet.h"
 
 #define BUFSIZE 1024
-#define INIT_NO 5096
 
-void doTransmission(int);
+void updataPackets(struct packet[], int, int);
+void updataAcks(int [], int, int);
 
 int main(int argc, char *argv[]) {
     int sockfd, newsockfd, portno;
@@ -59,55 +59,99 @@ int main(int argc, char *argv[]) {
                 struct packet packets[size_of_packets]; /* used to buffer the sent packets*/
                 int acked[size_of_packets]; /* if acked, then 1; else 0*/
 
-                while (1) { /* maybe this outer loop is unneccessary*/
-                    // first put all prepared packets into array packets
-                    int i; /* to deal with the situation we only need fewer packets to send all data rather than size_of_packets */
-                    int first_sequence_no = INIT_NO;
-                    int next_no = INIT_NO;
+                // first put all prepared packets into array packets
+                int i; /* to deal with the situation we only need fewer packets to send all data rather than size_of_packets */
+                int first_sequence_no = INIT_NO;
+                int next_no = INIT_NO;
+                int valid_num_of_packets; /* used to record the valid number of packets in the window */
 
+                for (i = 0; i < size_of_packets && !feof(fp); i++) {
+                    int numread = fread(sendbuf, sizeof(char), PAYLOAD_SIZE - 1, fp);
+                    struct packet pac;
 
-                    for (i = 0; i < size_of_packets && !feof(fp); i++) {
+                    sendbuf[numread] = '\0';
+                    strcpy(pac.data, sendbuf);
+                    pac.type = 1;
+                    pac.number = next_no;
+                    next_no = next_no + MPL;
 
-                        int numread = fread(sendbuf, sizeof(char), PAYLOAD_SIZE - 1, fp);
-                        struct packet pac;
-
-                        sendbuf[numread] = '\0';
-                        strcpy(pac.data, sendbuf);
-                        pac.type = 1;
-                        pac.number = next_no;
-                        next_no = next_no + MPL;
-
-                        if (next_no > MAX_SEQ_NO)
-                            next_no = next_no % MAX_SEQ_NO;
-                        packets[i] = pac;
-                    }
-
-                    // send all the packets
-                    for (int j = 0; j < i; j++) {
-                        sendto(sockfd, (char *)&packets[j], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
-                    }
-
-                    // wait for the ACK sent by the receiver
-                    struct packet rec_pac;
-                    for (;;) {
-                        recvlen = recvfrom(sockfd, (char *)&rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, &addrlen);
-                        if (recvlen > 0) {
-                            // check the ACK
-                            int ack_no = rec_pac.number;
-                            if (ack_no == first_sequence_no) {
-                                
-                            }
-                            printf("receive ack no. %d\n", ack_no);
-                        }
-                    }
-
-
-                   // need to send the FIN packet when all the data is successfully ACKed
-
-                // fin
-                // pac.fin = 1;
-                // sendto(sockfd, (char *)&pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
+                    if (next_no > MAX_SEQ_NO)
+                        next_no = next_no % MAX_SEQ_NO;
+                    packets[i] = pac;
                 }
+
+                // send all the packets
+                for (int j = 0; j < i; j++) {
+                    printf("sending packet %d %d\n", packets[j].number, WINDOW_SIZE);
+                    sendto(sockfd, (char *)&packets[j], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
+                }
+                valid_num_of_packets = i;
+
+                // wait for the ACK sent by the receiver
+                struct packet rec_pac;
+
+
+
+
+
+
+
+
+
+
+
+                // this condition has some problems
+                for (; valid_num_of_packets != 0;) { /* loop until the number of valid packets in the window is 0 */
+                    recvlen = recvfrom(sockfd, (char *)&rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, &addrlen);
+                    if (recvlen > 0) {
+                        // check the ACK
+                        int ack_no = rec_pac.number;
+                        printf("receiving packet %d\n", ack_no);
+                        if (ack_no == packets[0].number) { /* meaning the window can move forward*/
+                            // first check whether the next packet has been acked
+                            int p = 1;
+                            for (; p < i; p++) {
+                                if (acked[p] != 1) 
+                                    break;
+                            }
+                            // update the current window
+                            updataPackets(packets, p, size_of_packets);
+                            updataAcks(acked, p, size_of_packets);
+
+                            // put other packets into the window and send them
+                            int i_copy = i;
+                            for (i = i - p; i < size_of_packets && !feof(fp); i++) {
+                                int numread = fread(sendbuf, sizeof(char), PAYLOAD_SIZE - 1, fp);
+                                struct packet pac;
+                                sendbuf[numread] = '\0';
+                                strcpy(pac.data, sendbuf);
+                                pac.type = 1;
+                                pac.number = next_no;
+                                next_no = next_no + MPL;
+                                packets[i] = pac;
+
+                                if (next_no > MAX_SEQ_NO)
+                                next_no = next_no % MAX_SEQ_NO;
+
+                                // send the packet
+                                printf("sending packet %d %d\n", packets[i].number, WINDOW_SIZE);
+                                sendto(sockfd, (char *)&packets[i], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
+                            }
+
+                            // send all the packets
+/*                            for (int j = i_copy - p; j < i; j++) {
+                                printf("sending packet %d %d\n", packets[j].number, WINDOW_SIZE);
+                                sendto(sockfd, (char *)&packets[j], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
+                            }*/
+                        }
+                        valid_num_of_packets = i;
+                        printf("%d\n", valid_num_of_packets);
+                    }
+                }
+                // need to send the FIN packet when all the data is successfully ACKed
+                struct packet pac;
+                pac.fin = 1;
+                sendto(sockfd, (char *)&pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
             }
         }
     }
@@ -115,9 +159,24 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void doTransmission(int sock) {
-
+void updataPackets(struct packet packets[], int index, int length) {
+    int i = 0;
+    for (; i < index; i++) {
+        packets[i] = packets[index + i];
+    }
+    for (; i < length; i++) {
+        struct packet p;
+        packets[i] = p;
+    }
 }
 
-
+void updataAcks(int acks[], int index, int length) {
+    int i = 0;
+    for (; i < index; i++) {
+        acks[i] = acks[index + i];
+    }
+    for (; i < length; i++) {
+        acks[i] = 0;
+    }
+}
 
