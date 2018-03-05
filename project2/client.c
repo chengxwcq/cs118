@@ -51,6 +51,9 @@ int main(int argc, char* argv[]) {
         if (rec_pac.fin == 1) 
             break;
 
+        if (rec_pac.type == -1) /* meaning that the file doesn't exist */
+            break;
+
         send_pac.type = 1;
         send_pac.number = rec_pac.number;
         sendto(client_fd, (char *)&send_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, addrlen);

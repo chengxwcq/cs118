@@ -48,17 +48,22 @@ int main(int argc, char *argv[]) {
 
     for (;;) {
         recvlen = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *)&cli_addr, &addrlen);
+        printf("%s\n", buf);
         if (recvlen > 0) {
             buf[recvlen] = '\0';
             FILE *fp = fopen((char*)buf, "rb");
             if (fp == NULL) {
                 char *response = (char*) "File not exists";
-                sendto(sockfd, response, strlen(response), 0, (struct sockaddr *)&cli_addr, addrlen);
+                struct packet pac;
+                pac.type = -1;
+                strcpy(pac.data, response);
+                sendto(sockfd, (char *)&pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
+
+                memset(buf, '\0', BUFSIZE);
             } else {
                 int size_of_packets = WINDOW_SIZE / MPL;
                 struct packet packets[size_of_packets]; /* used to buffer the sent packets*/
                 int acked[size_of_packets]; /* if acked, then 1; else 0*/
-
                 // first put all prepared packets into array packets
                 int i; /* to deal with the situation we only need fewer packets to send all data rather than size_of_packets */
                 int first_sequence_no = INIT_NO;
