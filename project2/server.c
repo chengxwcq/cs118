@@ -95,16 +95,6 @@ int main(int argc, char *argv[]) {
                 // wait for the ACK sent by the receiver
                 struct packet rec_pac;
 
-
-
-
-
-
-
-
-
-
-
                 // this condition has some problems
                 for (; valid_num_of_packets != 0;) { /* loop until the number of valid packets in the window is 0 */
                     recvlen = recvfrom(sockfd, (char *)&rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, &addrlen);
@@ -112,6 +102,7 @@ int main(int argc, char *argv[]) {
                         // check the ACK
                         int ack_no = rec_pac.number;
                         printf("receiving packet %d\n", ack_no);
+
                         if (ack_no == packets[0].number) { /* meaning the window can move forward*/
                             // first check whether the next packet has been acked
                             int p = 1;
@@ -124,7 +115,6 @@ int main(int argc, char *argv[]) {
                             updataAcks(acked, p, size_of_packets);
 
                             // put other packets into the window and send them
-                            int i_copy = i;
                             for (i = i - p; i < size_of_packets && !feof(fp); i++) {
                                 int numread = fread(sendbuf, sizeof(char), PAYLOAD_SIZE - 1, fp);
                                 struct packet pac;
@@ -142,16 +132,10 @@ int main(int argc, char *argv[]) {
                                 printf("sending packet %d %d\n", packets[i].number, WINDOW_SIZE);
                                 sendto(sockfd, (char *)&packets[i], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
                             }
-
-                            // send all the packets
-/*                            for (int j = i_copy - p; j < i; j++) {
-                                printf("sending packet %d %d\n", packets[j].number, WINDOW_SIZE);
-                                sendto(sockfd, (char *)&packets[j], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
-                            }*/
+                            valid_num_of_packets = i;
                         }
-                        valid_num_of_packets = i;
-                        printf("%d\n", valid_num_of_packets);
                     }
+
                 }
                 // need to send the FIN packet when all the data is successfully ACKed
                 struct packet pac;
@@ -164,10 +148,11 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+
 void updataPackets(struct packet packets[], int index, int length) {
     int i = 0;
-    for (; i < index; i++) {
-        packets[i] = packets[index + i];
+    for (; index < length; i++, index++) {
+        packets[i] = packets[index];
     }
     for (; i < length; i++) {
         struct packet p;
@@ -177,8 +162,8 @@ void updataPackets(struct packet packets[], int index, int length) {
 
 void updataAcks(int acks[], int index, int length) {
     int i = 0;
-    for (; i < index; i++) {
-        acks[i] = acks[index + i];
+    for (; index < length; i++, index++) {
+        acks[i] = acks[index];
     }
     for (; i < length; i++) {
         acks[i] = 0;

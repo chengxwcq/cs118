@@ -48,8 +48,10 @@ int main(int argc, char* argv[]) {
         printf("%s\n", rec_pac.data);
         fprintf(fp, "%s", rec_pac.data);
 
-        if (rec_pac.fin == 1) 
+        if (rec_pac.fin == 1) {
+            printf("%s\n", "fin");
             break;
+        }
 
         if (rec_pac.type == -1) /* meaning that the file doesn't exist */
             break;
