@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
         send_pac.number = rec_pac.number;
         sendto(client_fd, (char *)&send_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, addrlen);
 
-        memset((char *)&rec_pac, 1, sizeof(struct packet));
+        memset((char *)&rec_pac, 0, sizeof(struct packet));
         memset((char *)&send_pac, 0, sizeof(struct packet));
     }
     fclose(fp);
