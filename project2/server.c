@@ -12,9 +12,9 @@
 
 #define BUFSIZE 1024
 
-void updataPackets(struct packet[], int, int);
-void updataAcks(int [], int, int);
-void updataTimers(time_t [], int, int);
+void updatePackets(struct packet[], int, int);
+void updateAcks(int [], int, int);
+void updateTimers(time_t [], int, int);
 
 int main(int argc, char *argv[]) {
     int sockfd, portno;
@@ -112,13 +112,13 @@ int main(int argc, char *argv[]) {
                     for (int j = 0; j < i; j++) {
                         time_t current_time = clock();
                         double d = (double)(current_time - timer[j]) / CLOCKS_PER_SEC * 1000;
-                        if (d > TIME_OUT) {
+               //printf("time out is %d\n", TIME_OUT);
+                        if (d > TIME_OUT && acked[j] != 1) {
                             sendto(sockfd, (char *)&packets[j], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
                             timer[j] = clock();
                             printf("sending packet %d %d Retransmission\n", packets[j].number, WINDOW_SIZE);
                         }
                     }
-
 
                     if (recvfrom(sockfd, (char *)&rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, &addrlen) != -1) {
                         // check the ACK
@@ -133,9 +133,9 @@ int main(int argc, char *argv[]) {
                                     break;
                             }
                             // update the current window
-                            updataPackets(packets, p, size_of_packets);
-                            updataAcks(acked, p, size_of_packets);
-                            updataTimers(timer, p, size_of_packets);
+                            updatePackets(packets, p, size_of_packets);
+                            updateAcks(acked, p, size_of_packets);
+                            updateTimers(timer, p, size_of_packets);
 
                             // put other packets into the window and send them
                             for (i = i - p; i < size_of_packets && !feof(fp); i++) {
@@ -156,8 +156,17 @@ int main(int argc, char *argv[]) {
                                 sendto(sockfd, (char *)&packets[i], sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
                             }
                             valid_num_of_packets = i;
+                        } else {
+                            // find the index of the received ack
+                            int index_ack = 0;
+                            for (; index_ack < size_of_packets; index_ack++) {
+                                if (packets[index_ack].number == ack_no)
+                                    break;
+                            }
+                            acked[index_ack] = 1;
                         }
                     }
+
 
 
                 }
@@ -168,6 +177,7 @@ int main(int argc, char *argv[]) {
                 pac.fin = 1;
                 sendto(sockfd, (char *)&pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
 
+        printf("%s\n", "send fin");
                 break;
             }
         }
@@ -177,7 +187,7 @@ int main(int argc, char *argv[]) {
 }
 
 
-void updataPackets(struct packet packets[], int index, int length) {
+void updatePackets(struct packet packets[], int index, int length) {
     int i = 0;
     for (; index < length; i++, index++) {
         packets[i] = packets[index];
@@ -188,7 +198,7 @@ void updataPackets(struct packet packets[], int index, int length) {
     }
 }
 
-void updataAcks(int acks[], int index, int length) {
+void updateAcks(int acks[], int index, int length) {
     int i = 0;
     for (; index < length; i++, index++) {
         acks[i] = acks[index];
@@ -198,7 +208,7 @@ void updataAcks(int acks[], int index, int length) {
     }
 }
 
-void updataTimers(time_t timers[], int index, int length) {
+void updateTimers(time_t timers[], int index, int length) {
     int i = 0;
     for (; index < length; i++, index++) {
         timers[i] = timers[index];
