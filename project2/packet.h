@@ -1,7 +1,5 @@
-//#define MPL 1024
-#define MPL 64
-//#define WINDOW_SIZE 5120
-#define WINDOW_SIZE 256
+#define MPL 1024
+#define WINDOW_SIZE 5120
 #define MAX_SEQ_NO 30720
 #define TIME_OUT 50
 #define PAYLOAD_SIZE (MPL - sizeof(int) * 3 - sizeof(unsigned int))

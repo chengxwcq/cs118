@@ -18,14 +18,11 @@ void updateTimers(time_t [], int, int);
 
 int main(int argc, char *argv[]) {
     int sockfd, portno;
-    socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     socklen_t addrlen = sizeof(cli_addr);
     int recvlen; /* the length of the received data */
     unsigned char buf[BUFSIZE]; /* used to receive the message from the client */
     char sendbuf[PAYLOAD_SIZE];
-
-    int numread; /* used to indicated the number of bytes read from the file*/
 
     if (argc < 2) {
         fprintf(stderr, "ERROR, no port provided\n");
@@ -69,7 +66,6 @@ int main(int argc, char *argv[]) {
                 time_t timer[size_of_packets]; /* used to caculate the time */
                 // first put all prepared packets into array packets
                 int i; /* to deal with the situation we only need fewer packets to send all data rather than size_of_packets */
-                int first_sequence_no = INIT_NO;
                 int next_no = INIT_NO;
                 int valid_num_of_packets; /* used to record the valid number of packets in the window */
 
@@ -166,18 +162,37 @@ int main(int argc, char *argv[]) {
                             acked[index_ack] = 1;
                         }
                     }
-
-
-
                 }
-       printf("%s\n", "transmission succeed");
-                // need to send the FIN packet when all the data is successfully ACKed
-                struct packet pac;
-                strcpy(pac.data, "");
-                pac.fin = 1;
-                sendto(sockfd, (char *)&pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
+                printf("%s\n", "transmission succeed");
 
-        printf("%s\n", "send fin");
+                int received_ack = 0;
+                // need to send the FIN packet when all the data is successfully ACKed
+                for (;;) {
+                    struct packet pac;
+                    strcpy(pac.data, "");
+                    pac.number = -1;
+                    pac.fin = 1;
+                    sendto(sockfd, (char *)&pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, addrlen);
+                    printf("%s\n", "send fin");
+
+                    time_t fin_start = clock();
+
+                    for (;;) {
+                        if (recvfrom(sockfd, (char *)&rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&cli_addr, &addrlen) != -1) {
+                            if (rec_pac.fin == 1 && rec_pac.number == -1) {
+                                printf("%s\n", "Receiving ACK of FIN");
+                                received_ack = 1;
+                                break;
+                            }
+                        }
+                        time_t current_time = clock();
+                        double d = (double)(current_time - fin_start)/ CLOCKS_PER_SEC * 1000;
+                        if (d > TIME_OUT) 
+                            break;
+                    }
+                    if (received_ack == 1)
+                        break;
+                }
                 break;
             }
         }

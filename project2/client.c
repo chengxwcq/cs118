@@ -9,8 +9,10 @@
 #include <string.h>
 #include <unistd.h>
 #include "packet.h"
+#include "time.h"
 
 #define BUFSIZE 1024
+
 void udp_msg_sender(int, struct sockaddr*, char*);
 void updatePackets(struct packet[], int, int, FILE*); /* put the data into the file */
 void updateAcks(int acks[], int, int);
@@ -21,7 +23,6 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in ser_addr;
     int recvlen;
     socklen_t addrlen = sizeof(ser_addr);
-    unsigned char buf[BUFSIZE];
 
     if (argc < 4) {
         fprintf(stderr, "insufficient parameters, should be client <server_hostname> <server_portnumber> <filename>\n");
@@ -46,7 +47,7 @@ int main(int argc, char* argv[]) {
     struct packet rec_pac;
     struct packet send_pac;
 
-    fp = fopen("b.txt", "wba");
+    fp = fopen("received.data", "wba");
 
     int first_packet_number = INIT_NO; /* used to certify the no. of the packet */
     int size_of_packets = WINDOW_SIZE / MPL;
@@ -59,7 +60,9 @@ int main(int argc, char* argv[]) {
         recvlen = recvfrom(client_fd, &rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, &addrlen);
 //        printf("%s\n", rec_pac.data);
 //        fprintf(fp, "%s", rec_pac.data);
-
+        if (recvlen == 0) {
+            
+        }
         int seq = rec_pac.number;
     printf("Receiving packet %d\n", seq);
 //    printf("first number is %d\n", first_packet_number);
@@ -82,13 +85,15 @@ int main(int argc, char* argv[]) {
 
   //  printf("updated first_packet_no is %d\n", first_packet_number);
 
-        } else { /* store the packet */
+        } else if (rec_pac.fin != 1) { /* store the packet */
             // if the packet has been acked but the ack not received by the server, ignore the packet
             // if the packet is in the window
             if (seq >= first_packet_number || first_packet_number - seq > size_of_packets * MPL) {
                 int index = get_the_index(first_packet_number, seq, MPL, MAX_SEQ_NO);
-                packets[index] = rec_pac;
-                acks[index] = 1;
+                if (index >= 0 && index < size_of_packets) {
+                    packets[index] = rec_pac;
+                    acks[index] = 1;
+                }
             }
         }
 
@@ -100,7 +105,34 @@ int main(int argc, char* argv[]) {
                     break;
                 }
             }
-            printf("%s\n", "fin");
+            printf("%s\n", "Receiving FIN");
+
+            // send ack
+            send_pac.number = -1;
+            send_pac.fin = 1;
+            sendto(client_fd, (char *)&send_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, addrlen);
+            printf("%s\n", "Sending ACK of FIN");
+            time_t current_time = clock();
+
+            struct timeval read_timeout;
+            read_timeout.tv_sec = 0;
+            read_timeout.tv_usec = 10;
+            setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+            // wait for a certain amount of time
+            for (;;) {
+                rec_pac.number = 0;
+                rec_pac.fin = 0;
+                recvlen = recvfrom(client_fd, &rec_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, &addrlen);
+                if (rec_pac.number == -1 && rec_pac.fin == 1) {
+                    sendto(client_fd, (char *)&send_pac, sizeof(struct packet), 0, (struct sockaddr *)&ser_addr, addrlen);
+                    printf("%s\n", "Sending ACK of FIN");
+                    current_time = clock();
+                }
+                double d = (double)(clock() - current_time) / CLOCKS_PER_SEC * 1000;
+
+                if (d > 3 * TIME_OUT)
+                    break;
+            }
             break;
         }
 
